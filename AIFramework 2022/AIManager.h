@@ -27,6 +27,7 @@ protected:
 
 	void    followRedCar();
 	void    Arrive();
+	void    Flee();
 
 	int wan ;
 	
@@ -35,11 +36,26 @@ protected:
 	Waypoint* StartLoc;
 	Waypoint* endLoc;
 
-	enum state {WANDER, STERRING, PATHFINDING, STRATEGY};
+	enum state { STERRING, PATHFINDING, STRATEGY};
+	state SetState;
 
-	Waypoint*  PathFinding();
+	void  PathFinding();
 
-	enum BlueState { Idle, FOLLOW};
+	void strategy();
+	enum Strategy
+	{
+		SeekBoost,
+		SeekPassanger,
+		SeekFual,
+
+	};
+	Strategy setStrState;
+
+	int fuel;
+
+
+
+	enum BlueState { Idle, FOLLOW, ARRIVE};
 	BlueState blueState;
 
 	enum Redstate { IDLE, MOVING};

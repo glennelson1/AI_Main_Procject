@@ -49,11 +49,14 @@ void AIManager::release()
 HRESULT AIManager::initialise(ID3D11Device* pd3dDevice)
 {
      // set state to change stering and stragey AI
-    SetState = STRATEGY;
+    SetState = STERRING;
 
     setStrState = SeekPassanger;
     fuel = 800;
-    
+    m_arrived = false;
+    m_arrive = false;
+    flee = false;
+
     // create the vehicle 
     float xPos = -500; // an abtrirary start point
     float yPos = 300;
@@ -139,7 +142,7 @@ void AIManager::update(const float fDeltaTime)
 	}
     */
 
-    Flee();
+   
 
     // update and draw the car (and check for pickup collisions)
 	if (m_pCar != nullptr && m_rCar != nullptr)
@@ -176,17 +179,22 @@ void AIManager::update(const float fDeltaTime)
         fuel--;
         if (fuel <= 80)
         {
+            OutputDebugStringA("Fuel is LOW \n");
             setStrState = SeekFual;
         }
 
 
         if (fuel <= 0)
         {
+            OutputDebugStringA("Fuel is Empty \n");
             m_pCar->setCurrentSpeed(0.3);
         }
        
         
     }
+    
+    if(flee)
+    Flee();
     
    
 }
@@ -224,6 +232,7 @@ void AIManager::keyDown(WPARAM param)
     const WPARAM key_w = 87;
     const WPARAM key_p = 80;
     const WPARAM key_o = 79;
+    const WPARAM key_f = 70;
    
     if (SetState == STERRING)
     {
@@ -246,7 +255,11 @@ void AIManager::keyDown(WPARAM param)
         }
         case key_a:
         {
+            m_arrived = true;
+            m_arrive = true;
             Arrive();
+           
+
             break;
         }
         case key_s:
@@ -279,10 +292,26 @@ void AIManager::keyDown(WPARAM param)
         {
             //follow red car
             if (blueState == Idle)
+            {
                 blueState = FOLLOW;
+            }
             else if (blueState == FOLLOW)
             {
                 blueState = Idle;
+            }
+            break;
+        }
+        case key_f:
+        {
+            if (!flee)
+            {
+                flee = true;
+                OutputDebugStringA("flee on \n");
+            }
+            else
+            {
+                flee = false;
+                OutputDebugStringA("flee off \n");
             }
             break;
         }
@@ -350,7 +379,23 @@ void AIManager::followRedCar()
 
 void AIManager::Flee()
 {
+    Waypoint* blueCar = m_waypointManager.getNearestWaypoint(m_pCar->getPosition());
+    vecWaypoints blueCarway = m_waypointManager.getNeighbouringWaypoints(blueCar);
+    Waypoint* redCar = m_waypointManager.getNearestWaypoint(m_rCar->getPosition());
+    vecWaypoints redCarway = m_waypointManager.getNeighbouringWaypoints(redCar);
+
+    int x = (rand() % SCREEN_WIDTH) - (SCREEN_WIDTH / 2);
+    int y = (rand() % SCREEN_HEIGHT) - (SCREEN_HEIGHT / 2);
+
+    Waypoint* wp = m_waypointManager.getNearestWaypoint(Vector2D(x, y));
+
     
+
+
+    if (redCarway == blueCarway)
+    {
+        m_pCar->setPositionTo(wp->getPosition());
+    }
 
     
 }
@@ -359,17 +404,26 @@ void AIManager::Flee()
 
 void AIManager::Arrive()
 {
+    
+
     int x = (rand() % SCREEN_WIDTH) - (SCREEN_WIDTH / 2);
     int y = (rand() % SCREEN_HEIGHT) - (SCREEN_HEIGHT / 2);
 
     Waypoint* wp = m_waypointManager.getNearestWaypoint(Vector2D(x, y));
+    Waypoint* blueCar = m_waypointManager.getNearestWaypoint(m_pCar->getPosition());
 
-    m_pCar->setPositionTo(wp->getPosition());
-
-    if (m_pCar->getPosition().Distance(wp->getPosition()) + 1000)
+    if (m_arrived)
     {
-        m_pCar->setCurrentSpeed(0.5);
-        OutputDebugStringA("yes \n");
+        m_pCar->setPositionTo(wp->getPosition());
+        m_arrived = false;
+        
+    }
+   
+
+    if (wp->distanceToWaypoint(blueCar) < 0.5)
+    {
+        m_pCar->setCurrentSpeed(-0.5);
+       
     }
     else
     {
@@ -427,29 +481,43 @@ void AIManager::PathFinding()
 
 void AIManager::strategy()
 {
+    Waypoint* wpfuel = m_waypointManager.getNearestWaypoint(m_pickups[1]->getPosition());
+    Waypoint* wpPassenger = m_waypointManager.getNearestWaypoint(m_pickups[0]->getPosition());
+    Waypoint* wpBoost = m_waypointManager.getNearestWaypoint(m_pickups[2]->getPosition());
+    Waypoint* blueCar = m_waypointManager.getNearestWaypoint(m_pCar->getPosition());
+
+    if (wpfuel->distanceToWaypoint(blueCar) < wpPassenger->distanceToWaypoint(blueCar) && wpfuel->distanceToWaypoint(blueCar) < wpBoost->distanceToWaypoint(blueCar))
+    {
+        setStrState = SeekFual;
+    }
+     else if (wpBoost->distanceToWaypoint(blueCar) < wpPassenger->distanceToWaypoint(blueCar) && wpBoost->distanceToWaypoint(blueCar) < wpfuel->distanceToWaypoint(blueCar))
+    {
+        setStrState = SeekBoost;
+    }
+     else if (wpPassenger->distanceToWaypoint(blueCar) < wpBoost->distanceToWaypoint(blueCar) && wpPassenger->distanceToWaypoint(blueCar) < wpfuel->distanceToWaypoint(blueCar))
+    {
+        setStrState = SeekPassanger;
+    }
+
+
     switch (setStrState)
     {
     case SeekPassanger:
-        
-
-        
             m_pCar->setPositionTo(m_pickups[0]->getPosition());
-        
-       
-        
         
         break;
 
     case SeekBoost:
         
-            m_pCar->setPositionTo(m_pickups[2]->getPosition());
         
+            m_pCar->setPositionTo(m_pickups[2]->getPosition());
        
         
         break;
     case SeekFual:
-        m_pCar->setPositionTo(m_pickups[1]->getPosition());
         
+            m_pCar->setPositionTo(m_pickups[1]->getPosition());
+
         break;
 
     default:
@@ -547,10 +615,10 @@ bool AIManager::checkForCollisions()
     //passenger coll
     if (boundingSphereCar.Intersects(boundingSpherePa))
     {
-        OutputDebugStringA("A collision has occurred!\n");
+        OutputDebugStringA("Passenger collected\n");
         m_pickups[0]->hasCollided();
         setRandomPickupPosition(m_pickups[0]);
-        setStrState = SeekBoost;
+       
         m_pCar->setCurrentSpeed(0.7);
         // you will need to test the type of the pickup to decide on the behaviour
         // m_pCar->dosomething(); ...
@@ -559,11 +627,11 @@ bool AIManager::checkForCollisions()
     //fuel coll
     else if (boundingSphereCar.Intersects(boundingSpherePa1))
     {
-        OutputDebugStringA("A collision has occurred!\n");
+        OutputDebugStringA("Fuel Colleted \n");
         m_pickups[1]->hasCollided();
         setRandomPickupPosition(m_pickups[1]);
         fuel = 500;
-        setStrState = SeekBoost;
+       
         m_pCar->setCurrentSpeed(0.7);
 
         return true;
@@ -571,10 +639,10 @@ bool AIManager::checkForCollisions()
     //speed boost coll
     else if (boundingSphereCar.Intersects(boundingSpherePa2))
     {
-        OutputDebugStringA("A collision has occurred!\n");
+        OutputDebugStringA("Speed boost collected\n");
         m_pickups[2]->hasCollided();
         setRandomPickupPosition(m_pickups[2]);
-        setStrState = SeekPassanger;
+        
         m_pCar->setCurrentSpeed(1);
         return true;
     }

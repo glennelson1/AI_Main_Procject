@@ -53,7 +53,9 @@ protected:
 
 	int fuel;
 
-
+	bool m_arrive;
+	bool m_arrived;
+	bool flee;
 
 	enum BlueState { Idle, FOLLOW, ARRIVE};
 	BlueState blueState;

@@ -28,6 +28,12 @@ protected:
 	void    followRedCar();
 	void    Arrive();
 	void    Flee();
+	void    obstacleAvoidance();
+
+	Waypoint* ArriveWP;
+
+	Waypoint* obwp;
+	bool obset;
 
 	int wan ;
 	

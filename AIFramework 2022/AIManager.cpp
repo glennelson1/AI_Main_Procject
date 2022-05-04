@@ -52,10 +52,12 @@ HRESULT AIManager::initialise(ID3D11Device* pd3dDevice)
     SetState = STERRING;
 
     setStrState = SeekPassanger;
-    fuel = 800;
+    fuel = 200;
     m_arrived = false;
     m_arrive = false;
     flee = false;
+    obset = false;
+    
 
     // create the vehicle 
     float xPos = -500; // an abtrirary start point
@@ -177,18 +179,7 @@ void AIManager::update(const float fDeltaTime)
     {
         strategy();
         fuel--;
-        if (fuel <= 80)
-        {
-            OutputDebugStringA("Fuel is LOW \n");
-            setStrState = SeekFual;
-        }
-
-
-        if (fuel <= 0)
-        {
-            OutputDebugStringA("Fuel is Empty \n");
-            m_pCar->setCurrentSpeed(0.3);
-        }
+        
        
         
     }
@@ -196,7 +187,12 @@ void AIManager::update(const float fDeltaTime)
     if(flee)
     Flee();
     
+    if (m_arrive)
+        Arrive();
    
+    if(obset)
+        obstacleAvoidance();
+
 }
 
 void AIManager::mouseUp(int x, int y)
@@ -255,8 +251,18 @@ void AIManager::keyDown(WPARAM param)
         }
         case key_a:
         {
-            m_arrived = true;
+            int x = (rand() % SCREEN_WIDTH) - (SCREEN_WIDTH / 2);
+            int y = (rand() % SCREEN_HEIGHT) - (SCREEN_HEIGHT / 2);
+
+            ArriveWP = m_waypointManager.getNearestWaypoint(Vector2D(x, y));
+
+            m_pCar->setPositionTo(ArriveWP->getPosition());
+
+            if(!m_arrive)
             m_arrive = true;
+            
+            
+
             Arrive();
            
 
@@ -317,6 +323,13 @@ void AIManager::keyDown(WPARAM param)
         }
         case key_o:
         {
+            int x = (rand() % SCREEN_WIDTH) - (SCREEN_WIDTH / 2);
+            int y = (rand() % SCREEN_HEIGHT) - (SCREEN_HEIGHT / 2);
+
+            obwp = m_waypointManager.getNearestWaypoint(Vector2D(x, y));
+
+            if (!obset)
+                obset = true;
             
 
             break;
@@ -327,7 +340,7 @@ void AIManager::keyDown(WPARAM param)
             PathFinding();
 
             break;
-            // etc
+// etc
         default:
             break;
         }
@@ -350,29 +363,31 @@ void AIManager::setRandomPickupPosition(PickupItem* pickup)
 
 void  AIManager::setRandomWaypoint(Vehicle* vehi)
 {
-   
-   
-        int x = (rand() % SCREEN_WIDTH) - (SCREEN_WIDTH / 2);
-        int y = (rand() % SCREEN_HEIGHT) - (SCREEN_HEIGHT / 2);
 
-        Waypoint* wp = m_waypointManager.getNearestWaypoint(Vector2D(x, y));
 
+    int x = (rand() % SCREEN_WIDTH) - (SCREEN_WIDTH / 2);
+    int y = (rand() % SCREEN_HEIGHT) - (SCREEN_HEIGHT / 2);
+
+    Waypoint* wp = m_waypointManager.getNearestWaypoint(Vector2D(x, y));
+
+    vehi->setPositionTo(wp->getPosition());
+
+    if (vehi->getPosition() == wp->getPosition())
+    {
         vehi->setPositionTo(wp->getPosition());
+    }
 
-        if (vehi->getPosition() == wp->getPosition())
-        {
-            vehi->setPositionTo(wp->getPosition());
-        }
-    
-       
+
 }
 
 
 void AIManager::followRedCar()
 {
+   
     Waypoint* wp = m_waypointManager.getNearestWaypoint(m_rCar->getPosition());
-    m_pCar->setPositionTo(wp->getPosition());
 
+    
+        m_pCar->setPositionTo(wp->getPosition());
 
 
 }
@@ -380,60 +395,99 @@ void AIManager::followRedCar()
 void AIManager::Flee()
 {
     Waypoint* blueCar = m_waypointManager.getNearestWaypoint(m_pCar->getPosition());
-    vecWaypoints blueCarway = m_waypointManager.getNeighbouringWaypoints(blueCar);
+
     Waypoint* redCar = m_waypointManager.getNearestWaypoint(m_rCar->getPosition());
-    vecWaypoints redCarway = m_waypointManager.getNeighbouringWaypoints(redCar);
+    
 
     int x = (rand() % SCREEN_WIDTH) - (SCREEN_WIDTH / 2);
     int y = (rand() % SCREEN_HEIGHT) - (SCREEN_HEIGHT / 2);
 
-    Waypoint* wp = m_waypointManager.getNearestWaypoint(Vector2D(x, y));
-
-    
+    Waypoint* wp = m_waypointManager.getNearestWaypoint(Vector2D(-491, 363));
 
 
-    if (redCarway == blueCarway)
+
+
+    if (blueCar->distanceToWaypoint(redCar) < 200)
     {
         m_pCar->setPositionTo(wp->getPosition());
+
+    }
+    else if (blueCar->distanceToWaypoint(redCar) > 220)
+    {
+        m_pCar->setPositionTo(m_pCar->getPosition());
     }
 
-    
+
 }
 
 
 
 void AIManager::Arrive()
 {
-    
 
-    int x = (rand() % SCREEN_WIDTH) - (SCREEN_WIDTH / 2);
-    int y = (rand() % SCREEN_HEIGHT) - (SCREEN_HEIGHT / 2);
-
-    Waypoint* wp = m_waypointManager.getNearestWaypoint(Vector2D(x, y));
     Waypoint* blueCar = m_waypointManager.getNearestWaypoint(m_pCar->getPosition());
 
-    if (m_arrived)
+
+
+
+    if (blueCar->distanceToWaypoint(ArriveWP) < 500 && blueCar->distanceToWaypoint(ArriveWP) > 400)
     {
-        m_pCar->setPositionTo(wp->getPosition());
-        m_arrived = false;
+        m_pCar->setCurrentSpeed(0.7);
         
+
+    }
+    else if (blueCar->distanceToWaypoint(ArriveWP) < 400 && blueCar->distanceToWaypoint(ArriveWP) > 300)
+    {
+        m_pCar->setCurrentSpeed(0.6);
+    
+    }
+    else if (blueCar->distanceToWaypoint(ArriveWP) < 300 && blueCar->distanceToWaypoint(ArriveWP) >= 150)
+    {
+       
+        m_pCar->setCurrentSpeed(0.5);
+    }
+    else if (blueCar->distanceToWaypoint(ArriveWP) < 150 && blueCar->distanceToWaypoint(ArriveWP) >= 50)
+    {
+        
+        m_pCar->setCurrentSpeed(0.3);
+    }
+    else if (blueCar->distanceToWaypoint(ArriveWP) < 50 && blueCar->distanceToWaypoint(ArriveWP) >= 0)
+    {
+       
+        m_pCar->setCurrentSpeed(0.1);
     }
    
-
-    if (wp->distanceToWaypoint(blueCar) < 0.5)
+    
+    
+    if (m_pCar->getPosition() == ArriveWP->getPosition())
     {
-        m_pCar->setCurrentSpeed(-0.5);
-       
-    }
-    else
-    {
+        m_arrive = false;
         m_pCar->setCurrentSpeed(0.8);
     }
+}
 
-    /*if (m_pCar->getPosition() == wp->getPosition())
+
+void AIManager::obstacleAvoidance()
+{
+    Waypoint* blueCar = m_waypointManager.getNearestWaypoint(m_pCar->getPosition());
+    Waypoint* redCar = m_waypointManager.getNearestWaypoint(m_rCar->getPosition());
+   
+
+    if (blueCar->distanceToWaypoint(redCar) <= 100)
     {
-        m_pCar->setPositionTo(wp->getPosition());
-    }*/
+        m_pCar->setPositionTo(Vector2D(200, 200));
+
+    }
+    else if (blueCar->distanceToWaypoint(redCar) >= 150)
+    {
+        m_pCar->setPositionTo(obwp->getPosition());
+    }
+
+    if (m_pCar->getPosition() == obwp->getPosition())
+    {
+        obset = false;
+        
+    }
 }
 
 
@@ -479,6 +533,9 @@ void AIManager::PathFinding()
     
 }
 
+
+
+
 void AIManager::strategy()
 {
     Waypoint* wpfuel = m_waypointManager.getNearestWaypoint(m_pickups[1]->getPosition());
@@ -497,6 +554,17 @@ void AIManager::strategy()
      else if (wpPassenger->distanceToWaypoint(blueCar) < wpBoost->distanceToWaypoint(blueCar) && wpPassenger->distanceToWaypoint(blueCar) < wpfuel->distanceToWaypoint(blueCar))
     {
         setStrState = SeekPassanger;
+    }
+    if (fuel <= 50)
+    {
+        OutputDebugStringA("Fuel is LOW \n");
+        setStrState = SeekFual;
+        
+    }
+    if (fuel <= 0)
+    {
+        OutputDebugStringA("Fuel is Empty \n");
+        m_pCar->setCurrentSpeed(0.2);
     }
 
 
@@ -630,7 +698,7 @@ bool AIManager::checkForCollisions()
         OutputDebugStringA("Fuel Colleted \n");
         m_pickups[1]->hasCollided();
         setRandomPickupPosition(m_pickups[1]);
-        fuel = 500;
+        fuel = 200;
        
         m_pCar->setCurrentSpeed(0.7);
 
